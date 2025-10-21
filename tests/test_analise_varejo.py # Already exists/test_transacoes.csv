@@ -1,0 +1,7 @@
+test_transacoes.csv
+id,transaction_date,amount,category
+1,2023-01-01,100.00,groceries
+2,2023-01-02,50.00,entertainment
+3,2023-01-03,200.00,utilities
+4,2023-01-04,150.00,groceries
+5,2023-01-05,75.00,transportation

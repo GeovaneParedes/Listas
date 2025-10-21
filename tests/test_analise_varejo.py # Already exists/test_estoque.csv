@@ -1,0 +1,7 @@
+test_estoque.csv
+id,product_name,quantity,price
+1,Product A,100,10.00
+2,Product B,200,15.50
+3,Product C,150,7.25
+4,Product D,50,20.00
+5,Product E,300,5.00

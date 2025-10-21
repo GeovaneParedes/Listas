@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-import pandas as pd
 import os
+import logging
 from typing import Dict, Any
+
+import pandas as pd
 import matplotlib.pyplot as plt
 
 # --- Variáveis de Configuração ---
@@ -9,111 +11,122 @@ ARQUIVO_TRANSACOES = "transacoes.csv"
 PASTA_IMAGEM = "imagens"
 
 
-def _carregar_dados_com_seguranca(caminho_arquivo: str) -> pd.DataFrame:
-    """
-    Carrega um arquivo CSV e trata erros de I/O e estrutura (robustez).
-    
-    Args:
-        caminho_arquivo: Caminho completo para o arquivo CSV.
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+)
+logger = logging.getLogger(__name__)
 
-    Returns:
-        Um DataFrame do Pandas, ou um DataFrame vazio em caso de erro.
-    """
+
+def _carregar_dados_com_seguranca(caminho_arquivo: str) -> pd.DataFrame:
+    """Carrega um arquivo CSV e trata erros de I/O e estrutura"""
     try:
-        df = pd.read_csv(caminho_arquivo, sep=',')
+        df = pd.read_csv(caminho_arquivo, encoding='utf-8')
+        # Validar colunas necessárias
+        colunas_requeridas = ['id_transacao', 'data_hora', 'produto']
+        if not all(col in df.columns for col in colunas_requeridas):
+            logger.error(
+                f"Colunas requeridas ausentes: "
+                f"{set(colunas_requeridas) - set(df.columns)}"
+            )
+            return pd.DataFrame()
         return df
-    except FileNotFoundError:
-        print(f"ERRO SÊNIOR: Arquivo não encontrado em {caminho_arquivo}. Retornando DataFrame vazio.")
+    except (FileNotFoundError, UnicodeDecodeError) as e:
+        logger.error(f"Erro ao abrir arquivo: {str(e)}")
         return pd.DataFrame()
     except Exception as e:
-        print(f"ERRO SÊNIOR: Falha ao carregar {caminho_arquivo}. Detalhes: {e}")
+        logger.error(f"Erro inesperado ao carregar dados: {str(e)}")
         return pd.DataFrame()
 
 
 def analisar_vendas(df_transacoes: pd.DataFrame) -> Dict[str, Any]:
-    """
-    Realiza a análise de vendas e retorna dados agregados (O(n)).
-    
-    Args:
-        df_transacoes: DataFrame carregado com os dados de transação.
+    """Realiza a análise de vendas e retorna dados agregados"""
+    if df_transacoes is None or df_transacoes.empty:
+        return {"Performance por Mês/Ano": pd.Series(dtype=float)}
 
-    Returns:
-        Um dicionário contendo a série de Performance por Mês/Ano.
-    """
-    if df_transacoes.empty:
-        return {}
-        
-    # Limpeza e Preparação dos Dados (Clean Code)
-    df_transacoes['data_hora'] = pd.to_datetime(df_transacoes['data_hora'])
-    df_transacoes['receita'] = df_transacoes['quantidade'] * df_transacoes['valor_unitario']
-    df_transacoes['mes_ano'] = df_transacoes['data_hora'].dt.to_period('M').astype(str)
-
-    # Análise por Mês (Eficiência Algorítmica)
-    vendas_por_mes = df_transacoes.groupby('mes_ano')['receita'].sum().sort_index()
-
-    return {
-        "Performance por Mês/Ano": vendas_por_mes
-    }
-
-
-def gerar_grafico_performance_mensal(vendas_mensais: pd.Series, pasta_saida: str, nome_arquivo: str):
-    """
-    Gera um gráfico de barras da performance de vendas mensal e salva.
-    Garante que a pasta de destino exista (Tratamento Robusto).
-    
-    Args:
-        vendas_mensais: Série do Pandas com o índice sendo o mês/ano e os valores a receita.
-        pasta_saida: Nome da pasta onde o gráfico será salvo.
-        nome_arquivo: Nome do arquivo de imagem (ex: 'vendas_mensais.png').
-    """
-    if vendas_mensais.empty:
-        print("AVISO SÊNIOR: Não há dados de vendas para gerar o gráfico.")
-        return
-
-    # Tratamento Robusto: Cria a pasta se não existir (Zero Gambiarra)
-    os.makedirs(pasta_saida, exist_ok=True)
-    caminho_completo = os.path.join(pasta_saida, nome_arquivo)
-    
-    plt.figure(figsize=(10, 6))
-    
-    # Geração do gráfico de barras
-    vendas_mensais.plot(kind='bar', color='skyblue', edgecolor='black')
-    
-    plt.title('Performance de Receita por Mês/Ano', fontsize=16)
-    plt.xlabel('Mês/Ano', fontsize=12)
-    plt.ylabel('Receita Total (R$)', fontsize=12)
-    plt.xticks(rotation=0) 
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
-    
-    # Adiciona rótulos de valor para clareza
-    for i, v in enumerate(vendas_mensais.values):
-        plt.text(i, v + 1, f'R$ {v:.2f}', ha='center', va='bottom', fontsize=9)
-        
-    plt.tight_layout()
-    
     try:
-        # Salvamento da Imagem
-        plt.savefig(caminho_completo)
+        df = df_transacoes.copy()
+        df['data_hora'] = pd.to_datetime(
+            df['data_hora'], format='%Y-%m-%d %H:%M:%S', errors='coerce'
+        )
+        df = df.dropna(subset=['data_hora'])
+        if df.empty:
+            return {"Performance por Mês/Ano": pd.Series(dtype=float)}
+
+        df.loc[:, 'receita'] = pd.to_numeric(
+            df.get('quantidade', 0), errors='coerce'
+        ) * pd.to_numeric(df.get('valor_unitario', 0), errors='coerce')
+        df = df.dropna(subset=['receita'])
+        if df.empty:
+            return {"Performance por Mês/Ano": pd.Series(dtype=float)}
+
+        df.loc[:, 'mes_ano'] = df['data_hora'].dt.to_period('M').astype(str)
+        vendas_por_mes = df.groupby('mes_ano')['receita'].sum().sort_index()
+
+        return {"Performance por Mês/Ano": vendas_por_mes}
     except Exception as e:
-        print(f"ERRO SÊNIOR: Falha ao salvar o gráfico. Detalhes: {e}")
-    finally:
-        plt.close()
+        logger.error(f"Erro na análise de vendas: {e}")
+        return {"Performance por Mês/Ano": pd.Series(dtype=float)}
+
+
+def gerar_grafico_performance_mensal(
+    vendas_mensais: pd.Series, pasta_saida: str, nome_arquivo: str
+) -> None:
+    """Gera gráfico de performance mensal"""
+    try:
+        if not isinstance(vendas_mensais, pd.Series) or vendas_mensais.empty:
+            raise ValueError("vendas_mensais deve ser uma Series não vazia")
+
+        os.makedirs(pasta_saida, exist_ok=True)
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        vendas_mensais.plot(kind='bar', ax=ax)
+        ax.set_title('Performance Mensal de Vendas')
+        ax.set_ylabel('Receita')
+        ax.set_xlabel('Mês/Ano')
+        plt.tight_layout()
+
+        caminho = os.path.join(pasta_saida, nome_arquivo)
+        plt.savefig(caminho)
+        plt.close(fig)
+        logger.info(f"Gráfico salvo em: {caminho}")
+    except Exception as e:
+        logger.error(f"ERRO SÊNIOR: Falha ao salvar o gráfico. Detalhes: {e}")
+        raise Exception(f"Erro ao gerar gráfico: {e}")
 
 
 # --- Exemplo de Uso (Fluxo de Desenvolvimento) ---
 if __name__ == "__main__":
-    
     # Simulação de Carregamento
     df_vendas = _carregar_dados_com_seguranca(ARQUIVO_TRANSACOES)
-    
+
     # Execução da Análise
     relatorio_vendas = analisar_vendas(df_vendas)
     vendas_mensais = relatorio_vendas.get("Performance por Mês/Ano")
 
     # Geração do Gráfico
-    if isinstance(vendas_mensais, pd.Series):
+    if isinstance(vendas_mensais, pd.Series) and not vendas_mensais.empty:
         gerar_grafico_performance_mensal(
-            vendas_mensais, 
-            PASTA_IMAGEM, 
-            "vendas_por_mes.png"
+            vendas_mensais, PASTA_IMAGEM, "vendas_mensais.png"
         )
+
+    # Executar verificação de estoque e alertas (opcional)
+    try:
+        import alerts
+
+        alert_emails = os.getenv("ALERT_EMAILS", "")
+        destinatarios = [
+            e.strip() for e in alert_emails.split(",") if e.strip()
+        ]
+        if destinatarios:
+            resp_alertas = alerts.gerar_alertas_e_enviar(
+                "estoque.csv", destinatarios
+            )
+            logger.info(f"Resultado dos alertas: {resp_alertas}")
+        else:
+            logger.info(
+                "Nenhum destinatário de alerta configurado (ALERT_EMAILS)."
+            )
+    except Exception as e:
+        logger.error(f"Falha ao executar módulo de alertas: {e}")
