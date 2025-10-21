@@ -68,6 +68,7 @@ estão na raiz do projeto.
     ```
 
 Ao finalizar, o console exibirá os relatórios de texto, e o gráfico de 
-performance mensal será salvo em `imagens/vendas_por_mes.png`[cite: 12].
+performance mensal será salvo em `imagens/vendas_por_mes.png`
+![imagens](imagens/vendas_por_mes.png).
 
 Autor [DevGege](https://github.com/GeovaneParedes)
