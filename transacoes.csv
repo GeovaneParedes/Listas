@@ -1,0 +1,11 @@
+id_transacao,data_hora,produto,quantidade,valor_unitario
+T0001,2025-01-10 09:00:00,Leite Integral 1L,2,5.00
+T0002,2025-01-15 15:30:00,Pão de Forma,1,8.00
+T0003,2025-01-15 16:00:00,Leite Integral 1L,1,5.00
+T0004,2025-01-28 20:00:00,Chocolate Barra,3,10.00
+T0005,2025-02-05 11:00:00,Cerveja Lata,12,3.50
+T0006,2025-02-05 18:00:00,Arroz 5kg,1,25.00
+T0007,2025-03-01 10:00:00,Frango Congelado,2,15.00
+T0008,2025-03-01 12:00:00,Cerveja Lata,6,3.50
+T0009,2025-03-15 19:00:00,Refrigerante 2L,1,7.00
+T0010,2025-03-15 21:00:00,Pão de Forma,2,8.00
